@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Pembayaran;
 use App\Models\Pesanan;
 use App\Models\Produk;
 use App\Models\User;
+use App\Services\MidtransService;
 use Illuminate\Http\Request;
 
 class PesananController extends Controller
@@ -43,22 +45,45 @@ class PesananController extends Controller
             'alamat_pengiriman' => 'required|string|max:255',
             'id_produk' => 'required|exists:produk,id',
             'total_bayar' => 'required|numeric|min:0',
-            'metode_pembayaran' => 'required|in:Transfer,Tunai',
+            'metode_pembayaran' => 'required|in:Midtrans,Tunai',
             'metode_pengiriman' => 'required|in:Delivery,Pick Up',
         ]);
 
-        // Pesanan::create($request->all());
-        Pesanan::create([
+        // Buat pesanan baru
+        $pesanan = Pesanan::create([
             'id_pelanggan' => $request->id_pelanggan,
             'alamat_pengiriman' => $request->alamat_pengiriman,
             'id_produk' => $request->id_produk,
             'total_bayar' => $request->total_bayar,
             'metode_pembayaran' => $request->metode_pembayaran,
             'metode_pengiriman' => $request->metode_pengiriman,
-            'status' => 'Menunggu Konfirmasi', // Default status
+            'status' => 'Menunggu Konfirmasi',
         ]);
 
-        return redirect()->route('pesanan.index')->with('success', 'Pesanan berhasil ditambahkan.');
+        // Jika menggunakan Midtrans
+        if ($request->metode_pembayaran == 'Midtrans') {
+            $midtransService = new MidtransService();
+            $midtransResponse = $midtransService->createTransaction($pesanan);
+
+            if ($midtransResponse['success']) {
+                return redirect($midtransResponse['redirect_url'])
+                    ->with('success', 'Pesanan berhasil dibuat. Silakan selesaikan pembayaran.');
+            } else {
+                return back()->with('error', 'Gagal membuat transaksi: ' . $midtransResponse['message']);
+            }
+        }
+        // Jika pembayaran tunai
+        else {
+            // Buat entry pembayaran dengan status menunggu
+            Pembayaran::create([
+                'id_pesanan' => $pesanan->id,
+                'metode' => 'Tunai',
+                'status_pemrosesan' => 'Menunggu Pembayaran'
+            ]);
+
+            return redirect()->route('pesanan.index')
+                ->with('success', 'Pesanan berhasil dibuat dengan pembayaran tunai.');
+        }
     }
 
     /**

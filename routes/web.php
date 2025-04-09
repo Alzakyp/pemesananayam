@@ -66,7 +66,7 @@ Route::resource('user', UserController::class);
 // Route::post('admin/login', [AdminAuthController::class, 'login']);
 
 // Route::get('produk.index', function () {
-    // return view('produk.index'); // Buat view untuk dashboard admin
+// return view('produk.index'); // Buat view untuk dashboard admin
 // })->name('produk.index')->middleware('auth');
 
 
@@ -75,3 +75,117 @@ Route::resource('user', UserController::class);
 // });
 
 
+
+
+// Update your test-midtrans route
+
+use App\Services\MidtransService;
+use App\Models\Pesanan;
+use App\Models\Produk;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+
+Route::get('/test-midtrans', function () {
+    try {
+        // Cek apakah ada pesanan
+        $pesanan = Pesanan::first();
+
+        // Jika tidak ada pesanan, buat dummy pesanan untuk test
+        if (!$pesanan) {
+            DB::beginTransaction();
+
+            // Cek apakah ada produk
+            $produk = Produk::first();
+            if (!$produk) {
+                // Buat produk dummy jika tidak ada
+                $produk = Produk::create([
+                    'nama_produk' => 'Ayam Test',
+                    'harga' => 50000,
+                    'stok' => 10,
+                    'satuan' => 'Kg',
+                ]);
+            }
+
+            // Cek apakah ada user
+            $user = User::where('role', 'pelanggan')->first();
+            if (!$user) {
+                // Buat user dummy jika tidak ada
+                $user = User::create([
+                    'nama' => 'Pelanggan Test',
+                    'email' => 'test@example.com',
+                    'password' => bcrypt('password'),
+                    'no_hp' => '081234567890',
+                    'role' => 'pelanggan'
+                ]);
+            }
+
+            // Buat pesanan dummy
+            $pesanan = Pesanan::create([
+                'id_pelanggan' => $user->id,
+                'id_produk' => $produk->id,
+                'alamat_pengiriman' => 'Alamat Test',
+                'total_bayar' => 100000,
+                'metode_pembayaran' => 'Midtrans',
+                'metode_pengiriman' => 'Delivery',
+                'status' => 'Menunggu Konfirmasi',
+                'tanggal_pemesanan' => now(),
+            ]);
+
+            DB::commit();
+
+            $message = 'Dummy order berhasil dibuat untuk testing';
+        } else {
+            $message = 'Menggunakan order yang sudah ada';
+        }
+
+        // Inisialisasi MidtransService
+        $midtransService = new MidtransService();
+
+        // Buat transaksi test
+        $result = $midtransService->createTransaction($pesanan);
+
+        // PERBAIKAN: Jika result berhasil dan punya redirect URL, redirect ke URL tersebut
+        if ($result['success'] && isset($result['redirect_url'])) {
+            // Tambahkan header untuk tampilan debug
+            header('Content-Type: text/html');
+            echo '<h1>Redirecting to Midtrans...</h1>';
+            echo '<p>If not redirected automatically, <a href="'.$result['redirect_url'].'">click here</a>.</p>';
+            echo '<script>window.location.href="'.$result['redirect_url'].'";</script>';
+            exit;
+        }
+
+        // Jika tidak ada redirect URL atau kita ingin lihat response
+        return response()->json([
+            'success' => true,
+            'message' => 'Koneksi Midtrans berhasil. ' . $message,
+            'data' => $result,
+            'midtrans_config' => [
+                'server_key' => substr(env('MIDTRANS_SERVER_KEY'), 0, 10) . '...',
+                'client_key' => env('MIDTRANS_CLIENT_KEY'),
+                'is_production' => env('MIDTRANS_IS_PRODUCTION', false) ? 'Production' : 'Sandbox',
+            ],
+            'pesanan' => [
+                'id' => $pesanan->id,
+                'total' => $pesanan->total_bayar
+            ],
+            'redirect_url' => $result['redirect_url'] ?? null
+        ]);
+    } catch (\Exception $e) {
+        if (isset($pesanan) && isset($message) && $message === 'Dummy order berhasil dibuat untuk testing') {
+            DB::rollBack();
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Error saat menghubungi Midtrans: ' . $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString(),
+            'midtrans_config' => [
+                'server_key_set' => !empty(env('MIDTRANS_SERVER_KEY')),
+                'client_key_set' => !empty(env('MIDTRANS_CLIENT_KEY')),
+                'is_production' => env('MIDTRANS_IS_PRODUCTION', false) ? 'Production' : 'Sandbox',
+            ]
+        ], 500);
+    }
+})->name('test-midtrans');

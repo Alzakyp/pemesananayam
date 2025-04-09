@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Produk;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage; // Pastikan untuk mengimpor Storage
+use Illuminate\Support\Facades\Storage;
 
 class ProdukController extends Controller
 {
@@ -34,7 +34,7 @@ class ProdukController extends Controller
             'nama_produk' => 'required|string|max:255',
             'harga' => 'required|numeric|min:0',
             'stok' => 'required|integer|min:0',
-            'satuan' => 'required|in:Kg,pcs,ons,ekor', // Validasi untuk satuan
+            'satuan' => 'required|string|max:20',
             'gambar' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
@@ -82,30 +82,28 @@ class ProdukController extends Controller
             'nama_produk' => 'required|string|max:255',
             'harga' => 'required|numeric|min:0',
             'stok' => 'required|integer|min:0',
-            'satuan' => 'required|in:Kg,pcs,ons,ekor', // Validasi untuk satuan
+            'satuan' => 'required|string|max:20',
             'gambar' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
         $produk = Produk::findOrFail($id);
 
-        // Update gambar jika ada upload baru
+        // Upload gambar jika ada upload baru
         if ($request->hasFile('gambar')) {
             // Hapus gambar lama jika ada
             if ($produk->gambar) {
                 Storage::disk('public')->delete($produk->gambar);
             }
             $gambarPath = $request->file('gambar')->store('produk', 'public');
-            $produk->gambar = $gambarPath; // Simpan path gambar baru
+            $produk->gambar = $gambarPath;
         }
 
         // Update data produk lainnya
-        $produk->update([
-            'nama_produk' => $request->nama_produk,
-            'harga' => $request->harga,
-            'stok' => $request->stok,
-            'satuan' => $request->satuan,
-            // Jangan simpan 'gambar' di sini, sudah di atas
-        ]);
+        $produk->nama_produk = $request->nama_produk;
+        $produk->harga = $request->harga;
+        $produk->stok = $request->stok;
+        $produk->satuan = $request->satuan;
+        $produk->save();
 
         return redirect()->route('produk.index')->with('success', 'Produk berhasil diperbarui.');
     }

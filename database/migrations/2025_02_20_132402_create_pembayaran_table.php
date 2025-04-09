@@ -14,9 +14,23 @@ return new class extends Migration
         Schema::create('pembayaran', function (Blueprint $table) {
             $table->id();
             $table->foreignId('id_pesanan')->constrained('pesanan')->onDelete('cascade');
-            $table->string('bukti_transfer')->nullable(); // Hanya diisi jika transfer
-            $table->enum('status', ['Menunggu Verifikasi', 'Terverifikasi', 'Ditolak'])->default('Menunggu Verifikasi');
-            $table->timestamp('tanggal_pembayaran')->useCurrent();
+            // Metode pembayaran
+            $table->enum('metode', ['Tunai', 'Midtrans'])->default('Tunai');
+
+            // Bukti transfer untuk pembayaran manual
+            $table->string('bukti_transfer')->nullable();
+
+            // Kolom-kolom untuk Midtrans
+            $table->string('midtrans_transaction_id')->nullable();
+            // Status transaksi dari Midtrans: pending, settlement, deny, cancel, expire, dll
+            $table->string('midtrans_status')->nullable();
+            $table->string('midtrans_payment_type')->nullable();
+            $table->string('midtrans_payment_url')->nullable();
+
+            // Status pemrosesan internal aplikasi
+            $table->enum('status_pemrosesan', ['Menunggu Pembayaran', 'Diproses', 'Selesai', 'Ditolak'])->default('Menunggu Pembayaran');
+
+            $table->timestamp('tanggal_pembayaran')->nullable();
             $table->timestamps();
         });
     }
