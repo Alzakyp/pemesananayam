@@ -36,6 +36,8 @@ class UserController extends Controller
             'password' => 'required|string|min:6',
             'role' => 'required|in:admin,pelanggan',
             'no_hp' => 'required|string|max:15',
+            'alamat' => 'nullable|string',
+            'koordinat_maps' => 'nullable|string',
         ]);
 
         User::create([
@@ -44,6 +46,8 @@ class UserController extends Controller
             'password' => Hash::make($request->password),
             'role' => $request->role,
             'no_hp' => $request->no_hp,
+            'alamat' => $request->alamat,
+            'koordinat_maps' => $request->koordinat_maps,
         ]);
 
         return redirect()->route('user.index')->with('success', 'Pengguna berhasil ditambahkan.');
@@ -76,17 +80,26 @@ class UserController extends Controller
             'password' => 'nullable|string|min:6',
             'role' => 'required|in:admin,pelanggan',
             'no_hp' => 'required|string|max:15',
+            'alamat' => 'nullable|string',
+            'koordinat_maps' => 'nullable|string',
         ]);
 
-        $user->update([
+        $data = [
             'nama' => $request->nama,
             'email' => $request->email,
-            'password' => $request->password ? Hash::make($request->password) : $user->password,
             'role' => $request->role,
             'no_hp' => $request->no_hp,
-        ]);
+            'alamat' => $request->alamat,
+            'koordinat_maps' => $request->koordinat_maps,
+        ];
 
-        return redirect()->route('user.index')->with('success', 'Data pengguna berhasil diperbarui.');
+        if ($request->filled('password')) {
+            $data['password'] = Hash::make($request->password);
+        }
+
+        $user->update($data);
+
+        return redirect()->route('user.index')->with('success', 'Pengguna berhasil diperbarui.');
     }
 
     /**
@@ -95,16 +108,7 @@ class UserController extends Controller
     public function destroy(User $user)
     {
         $user->delete();
+
         return redirect()->route('user.index')->with('success', 'Pengguna berhasil dihapus.');
     }
-
-    // public function dashboard()
-    // {
-    //     $jumlahPelanggan = User::where('role', 'pelanggan')->count();
-    //     $jumlahTransaksi = 6; // Ubah sesuai data transaksi dari database
-    //     $totalPendapatan = 1477000; // Ubah sesuai perhitungan pendapatan dari database
-
-    //     return view('dashboard', compact('jumlahPelanggan', 'jumlahTransaksi', 'totalPendapatan'));
-    // }
-
 }

@@ -86,8 +86,11 @@
             /* Gambar responsif */
             height: auto;
             /* Tinggi otomatis untuk mempertahankan rasio */
+
+
         }
     </style>
+
 </head>
 
 <body>
@@ -115,25 +118,10 @@
                             class="list-group-item list-group-item-action {{ Request::is('pesanan*') ? 'active' : '' }}">
                             Pesanan
                         </a>
-                        <div class="dropdown">
-                            <button class="list-group-item list-group-item-action dropdown-toggle" type="button"
-                                id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true"
-                                aria-expanded="false">
-                                Transaksi
-                            </button>
-                            <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                                <a class="dropdown-item {{ Request::is('transactions') ? 'active' : '' }}"
-                                    href="{{ route('pembayaran.index') }}">All Transactions</a>
-                                <a class="dropdown-item {{ Request::is('transactions-no-confirm') ? 'active' : '' }}"
-                                    href="?page=transactions-no-confirm">Belum Konfirmasi</a>
-                                <a class="dropdown-item {{ Request::is('transactions-confirm') ? 'active' : '' }}"
-                                    href="?page=transactions-confirm">Konfirmasi</a>
-                                <a class="dropdown-item {{ Request::is('transactions-pickup') ? 'active' : '' }}"
-                                    href="?page=transactions-pickup">Pick Up</a>
-                                <a class="dropdown-item {{ Request::is('transactions-sent') ? 'active' : '' }}"
-                                    href="?page=transactions-sent">Terkirim</a>
-                            </div>
-                        </div>
+                        <a href="{{ route('pembayaran.index') }}"
+                            class="list-group-item list-group-item-action {{ Request::is('pembayaran*') ? 'active' : '' }}">
+                            <i class="fas fa-money-bill-wave mr-2"></i> Transaksi
+                        </a>
                         <a href="{{ route('user.index') }}"
                             class="list-group-item list-group-item-action {{ Request::is('users') ? 'active' : '' }}">
                             Data Pengguna

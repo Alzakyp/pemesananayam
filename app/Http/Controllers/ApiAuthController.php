@@ -1,6 +1,5 @@
 <?php
 
-
 namespace App\Http\Controllers;
 
 use App\Models\User;
@@ -25,6 +24,8 @@ class ApiAuthController extends Controller
             'email' => 'required|string|email|unique:users',
             'password' => 'required|string|min:6',
             'no_hp' => 'required|string|max:15',
+            'alamat' => 'nullable|string',
+            'koordinat_maps' => 'nullable|string|regex:/^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/',
         ]);
 
         if ($validator->fails()) {
@@ -40,18 +41,17 @@ class ApiAuthController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'no_hp' => $request->no_hp,
+            'alamat' => $request->alamat,
+            'koordinat_maps' => $request->koordinat_maps,
             'role' => 'pelanggan',
         ]);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'success' => true,
             'message' => 'Register berhasil',
             'data' => [
                 'user' => $user,
-                'access_token' => $token,
-                'token_type' => 'Bearer'
             ]
         ], 201);
     }
@@ -156,6 +156,7 @@ class ApiAuthController extends Controller
             'nama' => 'required|string|max:255',
             'no_hp' => 'required|string|max:15',
             'alamat' => 'nullable|string',
+            'koordinat_maps' => 'nullable|string|regex:/^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/',
             'password' => 'nullable|string|min:6',
         ]);
 
@@ -173,6 +174,10 @@ class ApiAuthController extends Controller
 
         if ($request->has('alamat')) {
             $user->alamat = $request->alamat;
+        }
+
+        if ($request->has('koordinat_maps')) {
+            $user->koordinat_maps = $request->koordinat_maps;
         }
 
         if ($request->filled('password')) {

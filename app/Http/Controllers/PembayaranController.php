@@ -4,52 +4,18 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Pembayaran;
-use App\Models\Pesanan;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class PembayaranController extends Controller
 {
     /**
-     * Menampilkan daftar pembayaran.
+     * Menampilkan daftar pembayaran untuk monitoring.
      */
     public function index()
     {
-        $pembayaran = Pembayaran::with('pesanan')->latest()->get();
+        $pembayaran = Pembayaran::with('pesanan.pelanggan')->latest()->get();
         return view('pembayaran.index', compact('pembayaran'));
-    }
-
-    /**
-     * Menampilkan form tambah pembayaran.
-     */
-    public function create()
-    {
-        $pesanan = Pesanan::all(); // Ambil semua pesanan
-        return view('pembayaran.create', compact('pesanan'));
-    }
-
-    /**
-     * Menyimpan pembayaran baru.
-     */
-    public function store(Request $request)
-    {
-        $request->validate([
-            'id_pesanan' => 'required|exists:pesanan,id',
-            'bukti_transfer' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-            'status' => 'required|in:Menunggu Verifikasi,Terverifikasi,Ditolak',
-        ]);
-
-        $buktiTransferPath = null;
-        if ($request->hasFile('bukti_transfer')) {
-            $buktiTransferPath = $request->file('bukti_transfer')->store('bukti_transfer', 'public');
-        }
-
-        Pembayaran::create([
-            'id_pesanan' => $request->id_pesanan,
-            'bukti_transfer' => $buktiTransferPath,
-            'status' => $request->status,
-        ]);
-
-        return redirect()->route('pembayaran.index')->with('success', 'Pembayaran berhasil ditambahkan.');
     }
 
     /**
@@ -57,62 +23,39 @@ class PembayaranController extends Controller
      */
     public function show($id)
     {
-        $pembayaran = Pembayaran::with('pesanan')->findOrFail($id);
+        $pembayaran = Pembayaran::with(['pesanan.pelanggan', 'pesanan.detailPesanan.produk'])->findOrFail($id);
         return view('pembayaran.show', compact('pembayaran'));
     }
 
     /**
-     * Menampilkan form edit pembayaran.
+     * Menampilkan form edit pembayaran - HANYA untuk admin melihat status, bukan mengubah.
      */
     public function edit($id)
     {
         $pembayaran = Pembayaran::findOrFail($id);
-        $pesanan = Pesanan::all();
-        return view('pembayaran.edit', compact('pembayaran', 'pesanan'));
+        return view('pembayaran.edit', compact('pembayaran'));
     }
 
     /**
-     * Mengupdate data pembayaran.
+     * Update HANYA untuk kasus khusus, sebaiknya tidak digunakan
+     * karena status seharusnya diupdate otomatis lewat webhook
      */
     public function update(Request $request, $id)
     {
         $pembayaran = Pembayaran::findOrFail($id);
 
         $request->validate([
-            'id_pesanan' => 'required|exists:pesanan,id',
-            //'bukti_transfer' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-            'status' => 'required|in:Menunggu Verifikasi,Terverifikasi,Ditolak',
+            'status_pemrosesan' => 'required|in:Menunggu Pembayaran,Diproses,Selesai,Ditolak',
         ]);
 
-        // if ($request->hasFile('bukti_transfer')) {
-            // Hapus bukti transfer lama jika ada
-        //     if ($pembayaran->bukti_transfer) {
-        //         Storage::disk('public')->delete($pembayaran->bukti_transfer);
-        //     }
-        //     $pembayaran->bukti_transfer = $request->file('bukti_transfer')->store('bukti_transfer', 'public');
-        // }
-
-        $pembayaran->id_pesanan = $request->id_pesanan;
-        $pembayaran->status = $request->status;
+        // Log update manual untuk audit
+        Log::info('Pembayaran ID ' . $id . ' diupdate secara manual oleh admin.', [
+            'old_status' => $pembayaran->status_pemrosesan,
+            'new_status' => $request->status_pemrosesan,
+        ]);
+        $pembayaran->status_pemrosesan = $request->status_pemrosesan;
         $pembayaran->save();
 
-        return redirect()->route('pembayaran.index')->with('success', 'Pembayaran berhasil diperbarui.');
-    }
-
-    /**
-     * Menghapus data pembayaran.
-     */
-    public function destroy($id)
-    {
-        $pembayaran = Pembayaran::findOrFail($id);
-
-        // Hapus bukti transfer jika ada
-        if ($pembayaran->bukti_transfer) {
-            Storage::disk('public')->delete($pembayaran->bukti_transfer);
-        }
-
-        $pembayaran->delete();
-
-        return redirect()->route('pembayaran.index')->with('success', 'Pembayaran berhasil dihapus.');
+        return redirect()->route('pembayaran.index')->with('success', 'Status pembayaran berhasil diperbarui (Manual Update)');
     }
 }

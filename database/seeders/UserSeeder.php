@@ -19,7 +19,7 @@ class UserSeeder extends Seeder
             'email' => 'admin@pemesananayam.test',
             'password' => Hash::make('admin123'),
             'role' => 'admin',
-            'no_hp' => '081234567890'
+            'no_hp' => '081234567890'   
         ]);
     }
 }

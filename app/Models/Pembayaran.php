@@ -13,11 +13,25 @@ class Pembayaran extends Model
 
     protected $fillable = [
         'id_pesanan',
-        'status',
+        'metode',
+        'bukti_transfer',
+        'midtrans_transaction_id',
+        'midtrans_status',
+        'midtrans_payment_type',
+        'midtrans_payment_url',
+        'status_pemrosesan',
         'tanggal_pembayaran',
     ];
 
-    // Relasi dengan Pesanan
+    protected $dates = [
+        'tanggal_pembayaran',
+        'created_at',
+        'updated_at'
+    ];
+
+    /**
+     * Relasi dengan Pesanan
+     */
     public function pesanan()
     {
         return $this->belongsTo(Pesanan::class, 'id_pesanan');

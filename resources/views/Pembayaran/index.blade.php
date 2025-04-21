@@ -1,82 +1,127 @@
 @extends('layouts.app')
 
-@section('title', 'Data Pembayaran')
+@section('title', 'Monitoring Pembayaran')
 
 @section('content')
-<div class="section-content section-dashboard-home" data-aos="fade-up">
-    <div class="container-fluid">
-        <div class="dashboard-heading">
-            <h2 class="dashboard-title">Pembayaran</h2>
-            <p class="dashboard-subtitle">Kelola pembayaran dengan baik</p>
-        </div>
-        <div class="dashboard-content">
-            <div class="row mt-4">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="row mb-4">
-                                <div class="col-12">
-                                    <a href="" class="btn btn-success">
-                                        + Tambah Pembayaran Baru
-                                    </a>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-12">
-                                    <div class="table-responsive">
-                                        <table class="table table-striped table-hover" id="table">
-                                            <thead>
-                                                <tr>
-                                                    <th scope="col">ID</th>
-                                                    <th scope="col">Nama Pelanggan</th>
-                                                    <th scope="col">Total Bayar</th>
-                                                    <th scope="col">Metode Pembayaran</th>
-                                                    <th scope="col">Tanggal Pembayaran</th>
-                                                    <th scope="col">Status</th>
-                                                    <th scope="col" class="text-center">Aksi</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @foreach ($pembayaran as $item)
-                                                <tr>
-                                                <th scope="row">{{ $loop->iteration }}</th>                                                    <td>{{ $item->pelanggan->name }}</td>
-                                                    <td>Rp {{ number_format($item->total_bayar, 2, ',', '.') }}</td>
-                                                    <td>{{ $item->metode_pembayaran }}</td>
-                                                    <!-- <td>
-                                                        @if($item->bukti_transfer)
-                                                            <a href="{{ asset('storage/' . $item->bukti_transfer) }}" target="_blank">Lihat</a>
-                                                        @else
-                                                            <span class="text-danger">Belum Diupload</span>
-                                                        @endif
-                                                    </td> -->
-                                                    <td>{{ date('d-m-Y', strtotime($item->tanggal_pembayaran)) }}</td>
-                                                    <td>
-                                                        <span class="badge badge-pill 
-                                                            @if ($item->status == 'Terverifikasi') badge-success 
-                                                            @elseif ($item->status == 'Ditolak') badge-danger 
-                                                            @else badge-warning 
-                                                            @endif">
-                                                            {{ $item->status }}
-                                                        </span>
-                                                    </td>
-                                                    <td class="text-center">
-                                                        <a href="{{ route('pembayaran.edit', $item->id) }}" class="btn btn-warning btn-sm">Edit</a>
-                                                        <form action="{{ route('pembayaran.destroy', $item->id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Apakah ingin menghapus pembayaran {{ $item->id }}?')">
-                                                            @csrf
-                                                            @method('DELETE')
-                                                            <button type="submit" class="btn btn-danger btn-sm">Hapus</button>
-                                                        </form>
-                                                    </td>
-                                                </tr>
-                                                @endforeach
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Monitoring Pembayaran</h1>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Status Pembayaran (Via Midtrans Webhook)</h6>
+                    <div class="dropdown no-arrow">
+                        <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" aria-labelledby="dropdownMenuLink">
+                            <div class="dropdown-header">Info:</div>
+                            <a class="dropdown-item" href="#" data-toggle="modal" data-target="#webhookInfoModal">
+                                <i class="fas fa-info-circle fa-sm fa-fw mr-2 text-gray-400"></i>
+                                Tentang Webhook
+                            </a>
                         </div>
                     </div>
                 </div>
+                <div class="card-body">
+                    @if(session('success'))
+                    <div class="alert alert-success">
+                        {{ session('success') }}
+                    </div>
+                    @endif
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered" id="table" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Pesanan</th>
+                                    <th>Pelanggan</th>
+                                    <th>Metode</th>
+                                    <th>Status</th>
+                                    <th>Tanggal</th>
+                                    <th>Detail</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($pembayaran as $item)
+                                <tr>
+                                    <td>{{ $item->id }}</td>
+                                    <td>
+                                        @if($item->pesanan)
+                                            #{{ $item->pesanan->id }} - Rp {{ number_format($item->pesanan->total_bayar, 0, ',', '.') }}
+                                        @else
+                                            <span class="text-muted">Data tidak tersedia</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($item->pesanan && $item->pesanan->pelanggan)
+                                            {{ $item->pesanan->pelanggan->nama }}
+                                        @elseif($item->pesanan && $item->pesanan->nama)
+                                            {{ $item->pesanan->nama }} <span class="badge badge-info">Guest</span>
+                                        @else
+                                            <span class="text-muted">Data tidak tersedia</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        {{ $item->metode }}
+                                        @if($item->midtrans_payment_type)
+                                            <small class="d-block text-muted">{{ $item->midtrans_payment_type }}</small>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($item->status_pemrosesan == 'Menunggu Pembayaran')
+                                            <span class="badge badge-warning">Menunggu Pembayaran</span>
+                                        @elseif($item->status_pemrosesan == 'Diproses')
+                                            <span class="badge badge-success">Diproses</span>
+                                        @elseif($item->status_pemrosesan == 'Selesai')
+                                            <span class="badge badge-primary">Selesai</span>
+                                        @elseif($item->status_pemrosesan == 'Ditolak')
+                                            <span class="badge badge-danger">Ditolak</span>
+                                        @endif
+                                    </td>
+                                    <td>{{ $item->tanggal_pembayaran ? $item->tanggal_pembayaran->format('d/m/Y H:i') : 'Belum Bayar' }}</td>
+                                    <td>
+                                        <a href="{{ route('pembayaran.show', $item->id) }}" class="btn btn-info btn-sm" title="Detail">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Webhook Info Modal -->
+<div class="modal fade" id="webhookInfoModal" tabindex="-1" role="dialog" aria-labelledby="webhookInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="webhookInfoModalLabel">Informasi Midtrans Webhook</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Sistem ini menggunakan <strong>Midtrans Webhook</strong> untuk memproses status pembayaran otomatis:</p>
+                <ul>
+                    <li><strong>settlement</strong> - Pembayaran berhasil, status otomatis berubah menjadi "Diproses"</li>
+                    <li><strong>pending</strong> - Pembayaran menunggu konfirmasi</li>
+                    <li><strong>deny/cancel/expire</strong> - Pembayaran ditolak/dibatalkan/kadaluarsa</li>
+                </ul>
+                <p class="bg-light p-2"><strong>URL Webhook:</strong> https://yourdomain.com/api/midtrans-callback</p>
+                <p class="text-warning">Perubahan status manual tidak disarankan karena akan dioverride oleh webhook.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
             </div>
         </div>
     </div>

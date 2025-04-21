@@ -32,7 +32,20 @@ class Pesanan extends Model
         'metode_pengiriman',
         'lokasi_maps',
         'status',
-        'tanggal_pemesanan'
+        'tanggal_pemesanan',
+        'tanggal_pengiriman',
+        'stok_dikurangi'
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'tanggal_pemesanan' => 'datetime',
+        'tanggal_pengiriman' => 'datetime',
+        'stok_dikurangi' => 'boolean',
     ];
 
     /**

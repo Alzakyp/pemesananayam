@@ -1,5 +1,4 @@
 @extends('layouts.app')
-
 @section('title', 'Data Produk')
 
 @section('content')
@@ -27,7 +26,7 @@
                                         <table class="table table-striped table-hover" id="table">
                                             <thead>
                                                 <tr>
-                                                    <th scope="col">ID</th>
+                                                    <th scope="col">No</th>
                                                     <th scope="col">Nama</th>
                                                     <th scope="col">Harga</th>
                                                     <th scope="col">Stok</th>
@@ -37,9 +36,10 @@
                                                 </tr>
                                             </thead>
                                             <tbody>
+                                                @php $no = 1; @endphp
                                                 @foreach ($produk as $item)
                                                 <tr>
-                                                    <th scope="row">{{ $item->id }}</th>
+                                                    <th scope="row">{{ $no++ }}</th>
                                                     <td>{{ $item->nama_produk }}</td>
                                                     <td>Rp {{ number_format($item->harga, 2, ',', '.') }}</td>
                                                     <td>
