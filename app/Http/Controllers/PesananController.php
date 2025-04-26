@@ -19,9 +19,6 @@ class PesananController extends Controller
     public function index()
     {
         $pesanans = Pesanan::with(['pelanggan', 'produk'])->get();
-
-        // Nomor urut akan dibuat otomatis via view dengan counter loop
-
         return view('pesanan.index', compact('pesanans'));
     }
 
@@ -61,6 +58,7 @@ class PesananController extends Controller
         // Tentukan apakah ini adalah pengiriman di masa depan
         $isFutureDelivery = false;
         $tanggalPengiriman = null;
+
         if ($request->has('tanggal_pengiriman') && !empty($request->tanggal_pengiriman)) {
             $tanggalPengiriman = Carbon::parse($request->tanggal_pengiriman);
             $isFutureDelivery = $tanggalPengiriman->isAfter(Carbon::today());
@@ -148,7 +146,7 @@ class PesananController extends Controller
             'total_bayar' => 'required|numeric|min:0',
             'metode_pembayaran' => 'required|in:Midtrans,Tunai',
             'metode_pengiriman' => 'required|in:Delivery,Pick Up',
-            'status' => 'required|in:Mempersiapkan,Proses pengantaran,Selesai,Dibatalkan',
+            'status' => 'required|in:Mempersiapkan,Proses pengantaran,Siap Diambil,Selesai,Dibatalkan',
             'tanggal_pengiriman' => 'nullable|date',
         ]);
 
@@ -207,13 +205,19 @@ class PesananController extends Controller
     public function updateStatus(Request $request, $id)
     {
         $request->validate([
-            'status' => 'required|in:Mempersiapkan,Proses pengantaran,Selesai,Dibatalkan',
+            'status' => 'required|in:Mempersiapkan,Proses pengantaran,Siap Diambil,Selesai,Dibatalkan',
         ]);
 
         $pesanan = Pesanan::findOrFail($id);
         $oldStatus = $pesanan->status;
 
-        $pesanan->status = $request->status;
+        // Menentukan status yang sesuai berdasarkan metode pengiriman jika status = Proses pengantaran
+        if ($request->status == 'Proses pengantaran' && $pesanan->metode_pengiriman == 'Pick Up') {
+            $pesanan->status = 'Siap Diambil';
+        } else {
+            $pesanan->status = $request->status;
+        }
+
         $pesanan->save();
 
         // Jika pesanan dibatalkan dan stok sudah dikurangi, kembalikan stok

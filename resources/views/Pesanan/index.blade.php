@@ -16,7 +16,7 @@
                 <h6 class="m-0 font-weight-bold text-primary">Tabel Pesanan</h6>
             </div>
             <div class="card-body">
-                @if(session('success'))
+                @if (session('success'))
                     <div class="alert alert-success">
                         {{ session('success') }}
                     </div>
@@ -37,17 +37,18 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($pesanans as $index => $pesanan)
+                            @foreach ($pesanans as $index => $pesanan)
                                 <tr>
                                     <td>{{ $index + 1 }}</td>
                                     <td>
                                         <div>Pesan: {{ $pesanan->tanggal_pemesanan->format('d/m/Y') }}</div>
-                                        @if($pesanan->tanggal_pengiriman)
-                                            <div class="text-primary">Kirim: {{ $pesanan->tanggal_pengiriman->format('d/m/Y') }}</div>
+                                        @if ($pesanan->tanggal_pengiriman)
+                                            <div class="text-primary">Kirim:
+                                                {{ $pesanan->tanggal_pengiriman->format('d/m/Y') }}</div>
                                         @endif
                                     </td>
                                     <td>
-                                        @if($pesanan->pelanggan)
+                                        @if ($pesanan->pelanggan)
                                             {{ $pesanan->pelanggan->nama }}
                                         @else
                                             {{ $pesanan->nama ?: 'Guest' }}
@@ -57,10 +58,12 @@
                                     <td>{{ $pesanan->metode_pembayaran }}</td>
                                     <td>{{ $pesanan->metode_pengiriman }}</td>
                                     <td>
-                                        @if($pesanan->status == 'Mempersiapkan')
+                                        @if ($pesanan->status == 'Mempersiapkan')
                                             <span class="badge badge-info">Mempersiapkan</span>
                                         @elseif($pesanan->status == 'Proses pengantaran')
                                             <span class="badge badge-primary">Proses pengantaran</span>
+                                        @elseif($pesanan->status == 'Siap Diambil')
+                                            <span class="badge badge-warning">Siap Diambil</span>
                                         @elseif($pesanan->status == 'Selesai')
                                             <span class="badge badge-success">Selesai</span>
                                         @elseif($pesanan->status == 'Dibatalkan')
@@ -74,10 +77,12 @@
                                         <a href="{{ route('pesanan.edit', $pesanan->id) }}" class="btn btn-warning btn-sm">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <form action="{{ route('pesanan.destroy', $pesanan->id) }}" method="POST" class="d-inline">
+                                        <form action="{{ route('pesanan.destroy', $pesanan->id) }}" method="POST"
+                                            class="d-inline">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Apakah Anda yakin ingin menghapus pesanan ini?')">
+                                            <button type="submit" class="btn btn-danger btn-sm"
+                                                onclick="return confirm('Apakah Anda yakin ingin menghapus pesanan ini?')">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </form>

@@ -67,7 +67,7 @@
                         <div class="card mb-3 border-left-warning shadow">
                             <div class="card-body">
                                 <div class="dashboard-card-title">Produk Terjual</div>
-                                <div class="dashboard-card-subtitle">{{ $produkTerjual }} unit</div>
+                                <div class="dashboard-card-subtitle">{{ $produkTerjual }}</div>
                             </div>
                         </div>
                     </div>
@@ -128,6 +128,8 @@
                                                             <span class="badge badge-info">Mempersiapkan</span>
                                                         @elseif($pesanan->status == 'Proses pengantaran')
                                                             <span class="badge badge-primary">Proses pengantaran</span>
+                                                        @elseif($pesanan->status == 'Siap Diambil')
+                                                            <span class="badge badge-warning">Siap Diambil</span>
                                                         @elseif($pesanan->status == 'Selesai')
                                                             <span class="badge badge-success">Selesai</span>
                                                         @elseif($pesanan->status == 'Dibatalkan')

@@ -23,7 +23,7 @@ Route::post('/login', [AuthController::class, 'loginProses'])->name('login.prose
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // Dashboard
-Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'role:admin'])->name('dashboard'); 
+Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'role:admin'])->name('dashboard');
 
 
 
@@ -57,3 +57,7 @@ Route::get('/process-daily-orders', function () {
     Artisan::call('orders:process-daily');
     return back()->with('success', 'Pesanan untuk tanggal hari ini telah diproses');
 })->middleware(['auth', 'role:admin'])->name('process-daily-orders');
+
+
+Route::get('/pembayaran/{id}/sync', [PembayaranController::class, 'synchronizeStatus'])->name('pembayaran.sync');
+Route::get('/pembayaran/fix-duplicates', [PembayaranController::class, 'fixDuplicatePayments'])->name('pembayaran.fixDuplicates');

@@ -9,72 +9,55 @@ class Pesanan extends Model
 {
     use HasFactory;
 
-    /**
-     * Nama tabel yang digunakan model ini.
-     *
-     * @var string
-     */
     protected $table = 'pesanan';
 
-    /**
-     * Atribut yang dapat diisi.
-     *
-     * @var array
-     */
     protected $fillable = [
         'id_pelanggan',
         'nama',
         'no_hp',
         'alamat_pengiriman',
         'id_produk',
+        'jumlah',
+        'berat',
         'total_bayar',
         'metode_pembayaran',
         'metode_pengiriman',
         'lokasi_maps',
         'status',
+        'stok_dikurangi',
         'tanggal_pemesanan',
         'tanggal_pengiriman',
-        'stok_dikurangi'
+        'tanggal_pembayaran',
+        'payment_details',
+        'midtrans_order_id',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array
-     */
     protected $casts = [
+        'payment_details' => 'array',
         'tanggal_pemesanan' => 'datetime',
         'tanggal_pengiriman' => 'datetime',
-        'stok_dikurangi' => 'boolean',
+        'tanggal_pembayaran' => 'datetime',
     ];
 
-    /**
-     * Relasi dengan pelanggan.
-     */
-    public function pelanggan()
-    {
-        return $this->belongsTo(User::class, 'id_pelanggan');
-    }
-
-    /**
-     * Relasi dengan produk (untuk sistem lama).
-     */
+    // Relasi ke model Produk
     public function produk()
     {
         return $this->belongsTo(Produk::class, 'id_produk');
     }
 
-    /**
-     * Relasi dengan detail pesanan.
-     */
+    // Relasi ke model User (Pelanggan)
+    public function pelanggan()
+    {
+        return $this->belongsTo(User::class, 'id_pelanggan');
+    }
+
+    // Relasi ke model DetailPesanan
     public function detailPesanan()
     {
         return $this->hasMany(DetailPesanan::class, 'id_pesanan');
     }
 
-    /**
-     * Relasi dengan pembayaran.
-     */
+    // Relasi ke model Pembayaran
     public function pembayaran()
     {
         return $this->hasOne(Pembayaran::class, 'id_pesanan');

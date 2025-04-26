@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App\Models\User;
@@ -34,12 +33,12 @@ class DashboardController extends Controller
         // Total pelanggan
         $totalPelanggan = User::where('role', 'pelanggan')->count();
 
-        // Total pendapatan dalam periode (FIXED: gunakan join alih-alih closure)
-        $totalPendapatan = DB::table('pembayaran')
-            ->join('pesanan', 'pembayaran.id_pesanan', '=', 'pesanan.id')
-            ->whereBetween('pembayaran.tanggal_pembayaran', [$startDate, $endDate])
-            ->where('pembayaran.status_pemrosesan', 'Selesai')
-            ->sum('pesanan.total_bayar');
+        // PERBAIKAN: Gunakan query yang lebih sederhana untuk menghitung total pendapatan
+        // Termasuk status 'Siap Diambil' untuk pesanan pickup
+        $totalPendapatan = DB::table('pesanan')
+            ->whereBetween('tanggal_pemesanan', [$startDate, $endDate])
+            ->whereIn('status', ['Selesai', 'Proses pengantaran', 'Siap Diambil'])
+            ->sum('total_bayar');
 
         // Total transaksi dalam periode
         $totalTransaksi = Pesanan::whereBetween('tanggal_pemesanan', [$startDate, $endDate])
@@ -68,42 +67,39 @@ class DashboardController extends Controller
             ->join('produk', 'detail_pesanan.id_produk', '=', 'produk.id')
             ->join('pesanan', 'detail_pesanan.id_pesanan', '=', 'pesanan.id')
             ->select(
-                'produk.id',
                 'produk.nama_produk',
                 'produk.satuan',
                 'produk.stok',
                 DB::raw('SUM(detail_pesanan.jumlah) as total_terjual'),
-                DB::raw('SUM(detail_pesanan.subtotal) as total_pendapatan')
+                DB::raw('SUM(detail_pesanan.jumlah * detail_pesanan.harga) as total_pendapatan')
             )
             ->whereBetween('pesanan.tanggal_pemesanan', [$startDate, $endDate])
             ->where('pesanan.status', '!=', 'Dibatalkan')
             ->groupBy('produk.id', 'produk.nama_produk', 'produk.satuan', 'produk.stok')
             ->orderBy('total_terjual', 'desc')
-            ->limit(5)
+            ->limit(10)
             ->get();
 
-        // Data untuk grafik pendapatan per hari
+        // Buat rentang tanggal untuk chart
         $dateRange = [];
         $currentDate = clone $startDate;
-
-        // Generate date range
         while ($currentDate <= $endDate) {
             $dateRange[] = $currentDate->format('Y-m-d');
             $currentDate->addDay();
         }
 
-        // Ambil data pendapatan per hari
-        $pendapatanPerHari = DB::table('pembayaran')
-            ->join('pesanan', 'pembayaran.id_pesanan', '=', 'pesanan.id')
+        // Query untuk data pendapatan per hari dari pesanan langsung
+        // PERBAIKAN: Query untuk chart pendapatan termasuk status 'Siap Diambil'
+        $pendapatanPerHari = DB::table('pesanan')
             ->select(
-                DB::raw('DATE(pembayaran.tanggal_pembayaran) as tanggal'),
-                DB::raw('SUM(pesanan.total_bayar) as total')
+                DB::raw('DATE(tanggal_pemesanan) as tanggal'),
+                DB::raw('SUM(total_bayar) as total')
             )
-            ->whereBetween('pembayaran.tanggal_pembayaran', [$startDate, $endDate])
-            ->where('pembayaran.status_pemrosesan', 'Selesai')
+            ->whereBetween('tanggal_pemesanan', [$startDate, $endDate])
+            ->whereIn('status', ['Selesai', 'Proses pengantaran', 'Siap Diambil'])
             ->groupBy('tanggal')
             ->pluck('total', 'tanggal')
-            ->toArray();  // Mengubah ke array asosiatif
+            ->toArray();
 
         // Siapkan data untuk chart
         $chartLabels = [];
@@ -111,7 +107,7 @@ class DashboardController extends Controller
 
         foreach ($dateRange as $date) {
             $chartLabels[] = Carbon::parse($date)->format('d/m');
-            $chartData[] = $pendapatanPerHari[$date] ?? 0;  // Gunakan null coalescing
+            $chartData[] = $pendapatanPerHari[$date] ?? 0;
         }
 
         return view('dashboard', compact(

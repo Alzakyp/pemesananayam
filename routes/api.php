@@ -1,9 +1,9 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ApiAuthController;
-use App\Http\Controllers\ApiProdukController;
-use App\Http\Controllers\ApiPesananController;
+use App\Http\Controllers\API\ApiAuthController;
+use App\Http\Controllers\API\ApiProdukController;
+use App\Http\Controllers\API\ApiPesananController;
 use App\Http\Controllers\API\MidtransCallbackController;
 
 /*
@@ -51,3 +51,5 @@ Route::prefix('pesanan')->group(function () {
 
 // Route untuk callback Midtrans
 Route::post('/midtrans-callback', [MidtransCallbackController::class, 'handle']);
+Route::post('/midtrans/token', [MidtransCallbackController::class, 'getToken']);
+
