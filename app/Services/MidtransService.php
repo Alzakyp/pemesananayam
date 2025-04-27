@@ -42,15 +42,15 @@ class MidtransService
             // Format untuk registered user: SIAYAM-USER-{date}-{time}-{userId}
             $dateTime = now();
             $orderId = 'SIAYAM-USER-' .
-                       $dateTime->format('Ymd') . '-' .
-                       $dateTime->format('His') . '-' .
-                       $pesanan->id_pelanggan;
+                $dateTime->format('Ymd') . '-' .
+                $dateTime->format('His') . '-' .
+                $pesanan->id_pelanggan;
         } else {
             // Format untuk guest: SIAYAM-GUEST-{date}-{time}-G
             $dateTime = now();
             $orderId = 'SIAYAM-GUEST-' .
-                       $dateTime->format('Ymd') . '-' .
-                       $dateTime->format('His') . '-G';
+                $dateTime->format('Ymd') . '-' .
+                $dateTime->format('His') . '-G';
         }
 
         // Simpan order_id ke pesanan agar dapat digunakan oleh webhook
@@ -195,7 +195,6 @@ class MidtransService
             // Update status pembayaran berdasarkan notifikasi
             $this->updatePaymentStatus($pembayaran, $transactionStatus, $fraudStatus, $paymentType, $notification);
             return true;
-
         } catch (\Exception $e) {
             Log::error('Error processing Midtrans notification: ' . $e->getMessage(), [
                 'order_id' => $orderId,
@@ -247,7 +246,21 @@ class MidtransService
                     // Kirim notifikasi WhatsApp jika diperlukan
                     try {
                         $whatsappService = new WhatsAppService();
+
+                        // Pertama, kirim notifikasi pembayaran sukses
                         $whatsappService->sendPaymentSuccessNotification($pesanan);
+                        Log::info("Payment success notification sent for order #{$pesanan->id}");
+
+                        // Kemudian, kirim notifikasi sesuai status pengiriman/pengambilan
+                        if ($pesanan->status == 'Proses pengantaran') {
+                            // Tambahan notifikasi untuk pengiriman
+                            $whatsappService->sendDeliveryNotification($pesanan);
+                            Log::info("Delivery notification sent for order #{$pesanan->id}");
+                        } else if ($pesanan->status == 'Siap Diambil') {
+                            // Tambahan notifikasi untuk pengambilan di toko
+                            $whatsappService->sendOrderReadyNotification($pesanan);
+                            Log::info("Pickup notification sent for order #{$pesanan->id}");
+                        }
                     } catch (\Exception $e) {
                         Log::error('Failed to send WhatsApp notification: ' . $e->getMessage());
                     }
