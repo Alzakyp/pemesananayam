@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\ApiAuthController;
+use App\Http\Controllers\API\ApiHistoryController;
 use App\Http\Controllers\API\ApiProdukController;
 use App\Http\Controllers\API\ApiPesananController;
 use App\Http\Controllers\API\MidtransCallbackController;
@@ -22,6 +23,11 @@ Route::prefix('auth')->group(function () {
         Route::post('/logout', [ApiAuthController::class, 'logout']);
         Route::get('/profile', [ApiAuthController::class, 'profile']);
         Route::post('/profile/update', [ApiAuthController::class, 'updateProfile']);
+
+
+        // Order history routes
+        Route::get('/history', [ApiHistoryController::class, 'index']);
+        Route::get('/history/{id}', [ApiHistoryController::class, 'show']);
     });
 });
 
@@ -53,3 +59,4 @@ Route::prefix('pesanan')->group(function () {
 Route::post('/midtrans-callback', [MidtransCallbackController::class, 'handle']);
 Route::post('/midtrans/token', [MidtransCallbackController::class, 'getToken']);
 
+Route::post('/track-order', [ApiHistoryController::class, 'trackGuestOrder']);

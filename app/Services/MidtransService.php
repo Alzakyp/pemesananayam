@@ -165,6 +165,15 @@ class MidtransService
             if (!$pembayaran) {
                 $pesanan = Pesanan::where('midtrans_order_id', $orderId)->first();
 
+                // TAMBAHKAN KODE INI: Jika order_id adalah angka sederhana, coba cari berdasarkan ID pesanan
+                if (!$pesanan && is_numeric($orderId)) {
+                    $pesanan = Pesanan::find($orderId);
+
+                    if ($pesanan) {
+                        Log::info("Pesanan ditemukan berdasarkan ID langsung: {$orderId}");
+                    }
+                }
+
                 if ($pesanan) {
                     // Pesanan ditemukan, buat pembayaran
                     $pembayaran = Pembayaran::updateOrCreate(
@@ -217,10 +226,12 @@ class MidtransService
 
                 $pesanan = $pembayaran->pesanan;
                 if ($pesanan && $pesanan->status == 'Mempersiapkan') {
+                    $oldStatus = $pesanan->status;
+
                     if ($pesanan->metode_pengiriman == 'Delivery') {
                         $pesanan->status = 'Proses pengantaran';
                     } else {
-                        $pesanan->status = 'Siap Diambil';  // Status baru untuk Pick Up
+                        $pesanan->status = 'Siap Diambil';
                     }
                     $pesanan->tanggal_pembayaran = now();
 
@@ -241,26 +252,14 @@ class MidtransService
                     $pesanan->payment_details = json_encode($paymentDetails);
                     $pesanan->save();
 
-                    Log::info("Order {$pesanan->id} updated to status: Proses pengantaran");
+                    Log::info("Order {$pesanan->id} updated to status: {$pesanan->status}");
 
-                    // Kirim notifikasi WhatsApp jika diperlukan
+                    // MODIFIKASI: Hanya kirim satu notifikasi dengan format sesuai
                     try {
                         $whatsappService = new WhatsAppService();
-
-                        // Pertama, kirim notifikasi pembayaran sukses
-                        $whatsappService->sendPaymentSuccessNotification($pesanan);
-                        Log::info("Payment success notification sent for order #{$pesanan->id}");
-
-                        // Kemudian, kirim notifikasi sesuai status pengiriman/pengambilan
-                        if ($pesanan->status == 'Proses pengantaran') {
-                            // Tambahan notifikasi untuk pengiriman
-                            $whatsappService->sendDeliveryNotification($pesanan);
-                            Log::info("Delivery notification sent for order #{$pesanan->id}");
-                        } else if ($pesanan->status == 'Siap Diambil') {
-                            // Tambahan notifikasi untuk pengambilan di toko
-                            $whatsappService->sendOrderReadyNotification($pesanan);
-                            Log::info("Pickup notification sent for order #{$pesanan->id}");
-                        }
+                        // Kirim notifikasi tunggal dengan format yang sesuai
+                        $whatsappService->sendUnifiedNotification($pesanan);
+                        Log::info("Unified notification sent for order #{$pesanan->id}");
                     } catch (\Exception $e) {
                         Log::error('Failed to send WhatsApp notification: ' . $e->getMessage());
                     }

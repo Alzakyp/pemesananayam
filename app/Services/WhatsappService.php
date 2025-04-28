@@ -19,36 +19,48 @@ class WhatsAppService
     }
 
     /**
-     * Kirim notifikasi status pesanan
+     * Notifikasi terpadu untuk semua jenis pesanan - mencegah duplikasi pesan
+     *
      * @param Pesanan $pesanan
-     * @param string $status
      * @return bool
      */
-    public function sendOrderStatusNotification(Pesanan $pesanan, string $status)
+    public function sendUnifiedNotification(Pesanan $pesanan)
     {
         $phoneNumber = $this->formatPhoneNumber($pesanan->pelanggan->no_hp ?? $pesanan->no_hp);
         $customerName = $pesanan->pelanggan->nama ?? $pesanan->nama;
 
-        switch ($status) {
-            case 'Siap diambil':
-                return $this->sendOrderReadyNotification($pesanan);
-            case 'Proses pengantaran':
-                return $this->sendDeliveryNotification($pesanan);
-            default:
-                return false;
+        // Format pesan untuk delivery atau pickup sesuai permintaan
+        if ($pesanan->metode_pengiriman == 'Delivery') {
+            return $this->sendDeliveryConfirmation($pesanan, $phoneNumber, $customerName);
+        } else {
+            return $this->sendPickupConfirmation($pesanan, $phoneNumber, $customerName);
         }
     }
 
     /**
-     * Kirim notifikasi pembayaran berhasil
+     * Notifikasi khusus untuk pesanan tunai baru
+     *
      * @param Pesanan $pesanan
      * @return bool
      */
-    public function sendPaymentSuccessNotification(Pesanan $pesanan)
+    public function sendCashOrderNotification(Pesanan $pesanan)
     {
         $phoneNumber = $this->formatPhoneNumber($pesanan->pelanggan->no_hp ?? $pesanan->no_hp);
         $customerName = $pesanan->pelanggan->nama ?? $pesanan->nama;
 
+        if ($pesanan->metode_pengiriman == 'Delivery') {
+            return $this->sendCashDeliveryNotification($pesanan, $phoneNumber, $customerName);
+        } else {
+            return $this->sendCashPickupNotification($pesanan, $phoneNumber, $customerName);
+        }
+    }
+
+    /**
+     * Kirim konfirmasi pengiriman dengan format yang diminta
+     */
+    private function sendDeliveryConfirmation(Pesanan $pesanan, $phoneNumber, $customerName)
+    {
+        // Menggunakan format persis seperti yang diminta
         $message = "Halo {$customerName},\n\n";
         $message .= "Terima kasih telah berbelanja di UD. Ayam Potong Rizky.\n\n";
         $message .= "Pembayaran Anda untuk pesanan #{$pesanan->id} telah kami terima.\n\n";
@@ -58,23 +70,19 @@ class WhatsAppService
         if ($pesanan->detailPesanan && $pesanan->detailPesanan->count() > 0) {
             foreach ($pesanan->detailPesanan as $index => $detail) {
                 $message .= ($index + 1) . ". " . $detail->produk->nama_produk;
-                $message .= " ({$detail->jumlah} " . ($detail->berat ? "x {$detail->berat}kg" : "") . ")";
-                $message .= " - Rp " . number_format($detail->subtotal, 0, ',', '.') . "\n";
+                $message .= " (" . $detail->jumlah . ($detail->berat ? " x {$detail->berat}kg" : "") . ")";
+                $message .= " - Rp " . number_format($detail->harga * $detail->jumlah, 0, ',', '.') . "\n";
             }
         } else {
-            $message .= "- " . $pesanan->produk->nama_produk;
-            $message .= " ({$pesanan->jumlah} " . ($pesanan->berat ? "x {$pesanan->berat}kg" : "") . ")";
+            $message .= "1. " . $pesanan->produk->nama_produk;
+            $message .= " (" . $pesanan->jumlah . ($pesanan->berat ? " x {$pesanan->berat}kg" : "") . ")";
             $message .= " - Rp " . number_format($pesanan->total_bayar, 0, ',', '.') . "\n";
         }
 
         $message .= "\nTotal: Rp " . number_format($pesanan->total_bayar, 0, ',', '.') . "\n\n";
 
-        // Informasi pengiriman
-        if ($pesanan->metode_pengiriman == 'Delivery') {
-            $message .= "Pesanan akan dikirim ke alamat:\n{$pesanan->alamat_pengiriman}\n\n";
-        } else {
-            $message .= "Pesanan dapat diambil di toko kami.\n\n";
-        }
+        $message .= "Pesanan akan dikirim ke alamat:\n";
+        $message .= "{$pesanan->alamat_pengiriman}\n\n";
 
         $message .= "Terima kasih telah mempercayakan kebutuhan ayam Anda kepada kami!";
 
@@ -82,90 +90,101 @@ class WhatsAppService
     }
 
     /**
-     * Kirim notifikasi pesanan siap diambil
-     * @param Pesanan $pesanan
-     * @return bool
+     * Kirim konfirmasi pesanan siap diambil
      */
-    public function sendOrderReadyNotification(Pesanan $pesanan)
+    private function sendPickupConfirmation(Pesanan $pesanan, $phoneNumber, $customerName)
     {
-        $phoneNumber = $this->formatPhoneNumber($pesanan->pelanggan->no_hp ?? $pesanan->no_hp);
-        $customerName = $pesanan->pelanggan->nama ?? $pesanan->nama;
-
         $message = "Halo {$customerName},\n\n";
-        $message .= "Pesanan Anda #{$pesanan->id} di UD. Ayam Potong Rizky telah SIAP DIAMBIL.\n\n";
-
-        // Tambahkan informasi status pembayaran berbeda berdasarkan metode
-        if ($pesanan->metode_pembayaran == 'Midtrans') {
-            $message .= "Status pembayaran: LUNAS\n";
-            $message .= "Terima kasih atas pembayaran Anda.\n\n";
-        } else {
-            $message .= "Status pembayaran: TUNAI\n";
-            $message .= "Silakan lakukan pembayaran saat pengambilan pesanan sebesar Rp " . number_format($pesanan->total_bayar, 0, ',', '.') . "\n\n";
-        }
+        $message .= "Terima kasih telah berbelanja di UD. Ayam Potong Rizky.\n\n";
+        $message .= "Pembayaran Anda untuk pesanan #{$pesanan->id} telah kami terima.\n\n";
 
         // Detail pesanan
         $message .= "DETAIL PESANAN:\n";
         if ($pesanan->detailPesanan && $pesanan->detailPesanan->count() > 0) {
             foreach ($pesanan->detailPesanan as $index => $detail) {
                 $message .= ($index + 1) . ". " . $detail->produk->nama_produk;
-                $message .= " ({$detail->jumlah} " . ($detail->berat ? "x {$detail->berat}kg" : "") . ")";
-                $message .= " - Rp " . number_format($detail->subtotal, 0, ',', '.') . "\n";
+                $message .= " (" . $detail->jumlah . ($detail->berat ? " x {$detail->berat}kg" : "") . ")";
+                $message .= " - Rp " . number_format($detail->harga * $detail->jumlah, 0, ',', '.') . "\n";
             }
         } else {
-            $message .= "- " . $pesanan->produk->nama_produk;
-            $message .= " ({$pesanan->jumlah} " . ($pesanan->berat ? "x {$pesanan->berat}kg" : "") . ")";
+            $message .= "1. " . $pesanan->produk->nama_produk;
+            $message .= " (" . $pesanan->jumlah . ($pesanan->berat ? " x {$pesanan->berat}kg" : "") . ")";
             $message .= " - Rp " . number_format($pesanan->total_bayar, 0, ',', '.') . "\n";
         }
 
         $message .= "\nTotal: Rp " . number_format($pesanan->total_bayar, 0, ',', '.') . "\n\n";
 
-        $message .= "Pesanan Anda telah siap dan dapat diambil di toko kami dengan menunjukkan pesan ini.\n";
+        $message .= "Pesanan Anda telah SIAP DIAMBIL di toko kami.\n";
         $message .= "Alamat: Jl. Raya Utama No. 123, Kota Anda\n\n";
+
+        $message .= "Terima kasih telah mempercayakan kebutuhan ayam Anda kepada kami!";
+
+        return $this->sendMessage($phoneNumber, $message);
+    }
+
+    /**
+     * Notifikasi untuk pesanan tunai dengan pengiriman
+     */
+    private function sendCashDeliveryNotification(Pesanan $pesanan, $phoneNumber, $customerName)
+    {
+        $message = "Halo {$customerName},\n\n";
+        $message .= "Terima kasih telah memesan di UD. Ayam Potong Rizky.\n\n";
+        $message .= "Pesanan Anda #{$pesanan->id} sedang DALAM PERJALANAN.\n\n";
+        $message .= "Status pembayaran: TUNAI\n";
+        $message .= "Silakan siapkan pembayaran tunai sebesar Rp " . number_format($pesanan->total_bayar, 0, ',', '.') . "\n\n";
+
+        // Detail pesanan
+        $message .= "DETAIL PESANAN:\n";
+        if ($pesanan->detailPesanan && $pesanan->detailPesanan->count() > 0) {
+            foreach ($pesanan->detailPesanan as $index => $detail) {
+                $message .= ($index + 1) . ". " . $detail->produk->nama_produk;
+                $message .= " (" . $detail->jumlah . ($detail->berat ? " x {$detail->berat}kg" : "") . ")";
+                $message .= " - Rp " . number_format($detail->harga * $detail->jumlah, 0, ',', '.') . "\n";
+            }
+        } else {
+            $message .= "1. " . $pesanan->produk->nama_produk;
+            $message .= " (" . $pesanan->jumlah . ($pesanan->berat ? " x {$pesanan->berat}kg" : "") . ")";
+            $message .= " - Rp " . number_format($pesanan->total_bayar, 0, ',', '.') . "\n";
+        }
+
+        $message .= "\nTotal: Rp " . number_format($pesanan->total_bayar, 0, ',', '.') . "\n\n";
+
+        $message .= "Alamat pengiriman: {$pesanan->alamat_pengiriman}\n\n";
+        $message .= "Kurir kami sedang menuju lokasi Anda.\n\n";
         $message .= "Terima kasih telah berbelanja di UD. Ayam Potong Rizky!";
 
         return $this->sendMessage($phoneNumber, $message);
     }
 
     /**
-     * Kirim notifikasi pesanan dalam proses pengantaran
-     * @param Pesanan $pesanan
-     * @return bool
+     * Notifikasi untuk pesanan tunai siap diambil
      */
-    public function sendDeliveryNotification(Pesanan $pesanan)
+    private function sendCashPickupNotification(Pesanan $pesanan, $phoneNumber, $customerName)
     {
-        $phoneNumber = $this->formatPhoneNumber($pesanan->pelanggan->no_hp ?? $pesanan->no_hp);
-        $customerName = $pesanan->pelanggan->nama ?? $pesanan->nama;
-
         $message = "Halo {$customerName},\n\n";
-        $message .= "Pesanan Anda #{$pesanan->id} di UD. Ayam Potong Rizky sedang DALAM PERJALANAN.\n\n";
-
-        // Tambahkan informasi status pembayaran berbeda berdasarkan metode
-        if ($pesanan->metode_pembayaran == 'Midtrans') {
-            $message .= "Status pembayaran: LUNAS\n";
-            $message .= "Terima kasih atas pembayaran Anda.\n\n";
-        } else {
-            $message .= "Status pembayaran: TUNAI\n";
-            $message .= "Silakan siapkan pembayaran tunai sebesar Rp " . number_format($pesanan->total_bayar, 0, ',', '.') . "\n\n";
-        }
+        $message .= "Terima kasih telah memesan di UD. Ayam Potong Rizky.\n\n";
+        $message .= "Pesanan Anda #{$pesanan->id} telah SIAP DIAMBIL.\n\n";
+        $message .= "Status pembayaran: TUNAI\n";
+        $message .= "Silakan lakukan pembayaran saat pengambilan pesanan sebesar Rp " . number_format($pesanan->total_bayar, 0, ',', '.') . "\n\n";
 
         // Detail pesanan
         $message .= "DETAIL PESANAN:\n";
         if ($pesanan->detailPesanan && $pesanan->detailPesanan->count() > 0) {
             foreach ($pesanan->detailPesanan as $index => $detail) {
                 $message .= ($index + 1) . ". " . $detail->produk->nama_produk;
-                $message .= " ({$detail->jumlah} " . ($detail->berat ? "x {$detail->berat}kg" : "") . ")";
-                $message .= " - Rp " . number_format($detail->subtotal, 0, ',', '.') . "\n";
+                $message .= " (" . $detail->jumlah . ($detail->berat ? " x {$detail->berat}kg" : "") . ")";
+                $message .= " - Rp " . number_format($detail->harga * $detail->jumlah, 0, ',', '.') . "\n";
             }
         } else {
-            $message .= "- " . $pesanan->produk->nama_produk;
-            $message .= " ({$pesanan->jumlah} " . ($pesanan->berat ? "x {$pesanan->berat}kg" : "") . ")";
+            $message .= "1. " . $pesanan->produk->nama_produk;
+            $message .= " (" . $pesanan->jumlah . ($pesanan->berat ? " x {$pesanan->berat}kg" : "") . ")";
             $message .= " - Rp " . number_format($pesanan->total_bayar, 0, ',', '.') . "\n";
         }
 
         $message .= "\nTotal: Rp " . number_format($pesanan->total_bayar, 0, ',', '.') . "\n\n";
 
-        $message .= "Pesanan akan dikirim ke alamat.\n\n";
-        $message .= "Alamat pengiriman: {$pesanan->alamat_pengiriman}\n\n";
+        $message .= "Pesanan Anda dapat diambil di toko kami dengan menunjukkan pesan ini.\n";
+        $message .= "Alamat: Jl. Raya Utama No. 123, Kota Anda\n\n";
         $message .= "Terima kasih telah berbelanja di UD. Ayam Potong Rizky!";
 
         return $this->sendMessage($phoneNumber, $message);

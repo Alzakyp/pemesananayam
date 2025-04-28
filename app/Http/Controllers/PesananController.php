@@ -7,9 +7,12 @@ use App\Models\Produk;
 use App\Models\User;
 use App\Models\Pembayaran;
 use App\Services\MidtransService;
+use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use Illuminate\Container\Attributes\Log;
+use Illuminate\Support\Facades\Log as FacadesLog;
 
 class PesananController extends Controller
 {
@@ -203,11 +206,12 @@ class PesananController extends Controller
      * Update status pesanan.
      */
     public function updateStatus(Request $request, $id)
-    {
-        $request->validate([
-            'status' => 'required|in:Mempersiapkan,Proses pengantaran,Siap Diambil,Selesai,Dibatalkan',
-        ]);
+{
+    $request->validate([
+        'status' => 'required|in:Mempersiapkan,Proses pengantaran,Siap Diambil,Selesai,Dibatalkan',
+    ]);
 
+    try {
         $pesanan = Pesanan::findOrFail($id);
         $oldStatus = $pesanan->status;
 
@@ -222,16 +226,46 @@ class PesananController extends Controller
 
         // Jika pesanan dibatalkan dan stok sudah dikurangi, kembalikan stok
         if ($request->status == 'Dibatalkan' && $pesanan->stok_dikurangi) {
-            $produk = Produk::find($pesanan->id_produk);
-            if ($produk) {
-                $produk->stok += 1; // Sesuaikan dengan jumlah sebenarnya
-                $produk->save();
+            // Jika menggunakan detail pesanan
+            if (count($pesanan->detailPesanan) > 0) {
+                foreach ($pesanan->detailPesanan as $detail) {
+                    $produk = $detail->produk;
+                    if ($produk) {
+                        $produk->stok += $detail->jumlah;
+                        $produk->save();
+                    }
+                }
+            }
+            // Jika pesanan langsung terhubung ke produk
+            elseif ($pesanan->id_produk) {
+                $produk = Produk::find($pesanan->id_produk);
+                if ($produk) {
+                    $produk->stok += $pesanan->jumlah;
+                    $produk->save();
+                }
+            }
 
-                $pesanan->stok_dikurangi = false;
-                $pesanan->save();
+            $pesanan->stok_dikurangi = false;
+            $pesanan->save();
+        }
+
+        // Kirim notifikasi WhatsApp hanya jika statusnya berubah dan merupakan pembayaran tunai
+        // Untuk pembayaran Midtrans, notifikasi sudah ditangani oleh MidtransService
+        if (($oldStatus != $pesanan->status) && $pesanan->metode_pembayaran == 'Tunai' &&
+            in_array($pesanan->status, ['Proses pengantaran', 'Siap Diambil'])) {
+            try {
+                $whatsappService = new WhatsAppService();
+                $whatsappService->sendCashOrderNotification($pesanan);
+                FacadesLog::info("Cash order notification sent for order #{$pesanan->id} with status: {$pesanan->status}");
+            } catch (\Exception $e) {
+                FacadesLog::error("Failed to send WhatsApp notification for cash order #{$pesanan->id}: " . $e->getMessage());
             }
         }
 
         return redirect()->route('pesanan.show', $id)->with('success', 'Status pesanan berhasil diperbarui.');
+    } catch (\Exception $e) {
+        FacadesLog::error("Error updating order status: " . $e->getMessage());
+        return redirect()->route('pesanan.show', $id)->with('error', 'Terjadi kesalahan saat memperbarui status pesanan: ' . $e->getMessage());
     }
+}
 }
